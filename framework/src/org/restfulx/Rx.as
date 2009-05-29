@@ -324,7 +324,8 @@ package org.restfulx {
      * @return new filtered RxCollection instance
      */
     public static function filter(items:ArrayCollection, filter:Function = null):RxCollection {
-      var results:RxCollection = new RxCollection(items.source.slice(0));
+      var source:Array = (items == null || items.source == null) ?  [] : items.source.slice(0);
+      var results:RxCollection = new RxCollection(source);
       return RxCollection(filter$(results, filter));
     }
     
