@@ -60,8 +60,8 @@ package org.restfulx.services.air {
       "Boolean" : "BOOLEAN",
       "String" : "TEXT",
       "Number" : "DOUBLE",
-      "Date" : "DATE",
-      "DateTime" : "DATETIME"
+      "Date" : "TEXT",
+      "DateTime" : "TEXT"
     }
     
     protected var state:ModelsMetadata;
@@ -110,6 +110,7 @@ package org.restfulx.services.air {
     }
 
     /**
+     * @inheritDoc
      * @see org.restfulx.services.IServiceProvider#id
      */
     public function get id():int {
@@ -117,6 +118,7 @@ package org.restfulx.services.air {
     }
     
     /**
+     * @inheritDoc
      * @see org.restfulx.services.IServiceProvider#hasErrors
      */
     public function hasErrors(object:Object):Boolean {
@@ -124,6 +126,7 @@ package org.restfulx.services.air {
     }
 
     /**
+     * @inheritDoc
      * @see org.restfulx.services.IServiceProvider#canLazyLoad
      */
     public function canLazyLoad():Boolean {
@@ -131,6 +134,7 @@ package org.restfulx.services.air {
     }
     
     /**
+     * @inheritDoc
      * @see org.restfulx.services.IServiceProvider#marshall
      */
     public function marshall(object:Object, recursive:Boolean = false):Object {
@@ -138,6 +142,7 @@ package org.restfulx.services.air {
     }
 
     /**
+     * @inheritDoc
      * @see org.restfulx.services.IServiceProvider#unmarshall
      */
     public function unmarshall(object:Object, disconnected:Boolean = false):Object {
@@ -145,6 +150,7 @@ package org.restfulx.services.air {
     }
     
     /**
+     * @inheritDoc
      * @see org.restfulx.services.IServiceProvider#index
      */
     public function index(clazz:Object, responder:IResponder, metadata:Object = null, nestedBy:Array = null):void {
@@ -173,12 +179,14 @@ package org.restfulx.services.air {
     }
 
     /**
+     * @inheritDoc
      * @see org.restfulx.services.IServiceProvider#show
      */
     public function show(object:Object, responder:IResponder, metadata:Object = null, nestedBy:Array = null):void {
       var fqn:String = getQualifiedClassName(object);
       var statement:SQLStatement = getSQLStatement(sql[fqn]["select"] + " and id = '" + object["id"] + "'");
       try {
+        Rx.log.debug("show:executing SQL:" + statement.text);
         statement.execute();
       
         var vo:Object = statement.getResult().data[0];
@@ -192,6 +200,7 @@ package org.restfulx.services.air {
     }
     
     /**
+     * @inheritDoc
      * @see org.restfulx.services.IServiceProvider#create
      */
     public function create(object:Object, responder:IResponder, metadata:Object = null, nestedBy:Array = null, 
@@ -257,6 +266,7 @@ package org.restfulx.services.air {
         
         RxUtils.fireUndoRedoActionEvent(undoRedoFlag);
 
+        Rx.log.debug("create:executing SQL:" + statement.text);
         statement.execute();
         show(object, responder, metadata, nestedBy);
       } catch (e:Error) {
@@ -265,6 +275,7 @@ package org.restfulx.services.air {
     }
 
     /**
+     * @inheritDoc
      * @see org.restfulx.services.IServiceProvider#update
      */    
     public function update(object:Object, responder:IResponder, metadata:Object = null, nestedBy:Array = null,
@@ -301,12 +312,10 @@ package org.restfulx.services.air {
         sqlStatement.parameters[":rev"] = object["rev"];
         if (object["sync"] == 'N') {
           sqlStatement.parameters[":sync"] = 'N';
-        } else if (undoRedoFlag == Rx.undoredo.UNDO) {
-          sqlStatement.parameters[":sync"] = 'U';
         } else {
-          sqlStatement.parameters[":sync"] = 'U';//is there any case we don't want this?
-          //updates weren't syncing when this was: sqlStatement.parameters[":sync"] = object["sync"];
+          sqlStatement.parameters[":sync"] = 'U';
         }
+        
         if (Rx.enableUndoRedo && undoRedoFlag != Rx.undoredo.UNDO) {
           var clone:Object = RxUtils.clone(object);
           Rx.undoredo.addChangeAction({service: this, action: "update", copy: clone,
@@ -316,6 +325,7 @@ package org.restfulx.services.air {
 
         RxUtils.fireUndoRedoActionEvent(undoRedoFlag);
         
+        Rx.log.debug("update:executing SQL:" + sqlStatement.text);
         sqlStatement.execute();
         show(object, responder, metadata, nestedBy);
       } catch (e:Error) {
@@ -324,6 +334,7 @@ package org.restfulx.services.air {
     }
     
     /**
+     * @inheritDoc
      * @see org.restfulx.services.IServiceProvider#destroy
      */
     public function destroy(object:Object, responder:IResponder, metadata:Object = null, nestedBy:Array = null,
@@ -345,6 +356,7 @@ package org.restfulx.services.air {
     }
     
     /**
+     * @inheritDoc
      * @see org.restfulx.services.ISyncingServiceProvider#dirty
      */
     public function dirty(object:Object, responder:IResponder, metadata:Object = null, nestedBy:Array = null):void {
@@ -352,15 +364,15 @@ package org.restfulx.services.air {
       
       var statement:SQLStatement = getSQLStatement(sql[fqn]["dirty"]);  
       
-      try {   
+      try {
+        Rx.log.debug("dirty:executing SQL:" + statement.text);
         statement.execute();
         
         var result:Object;
         var data:Array = statement.getResult().data;
         if (data && data.length > 0) {
           data[0]["clazz"] = fqn.split("::")[1];
-          //when this second parameter was true, updating the server from the client nulled out the dependencies
-          result = unmarshall(data, false);
+          result = unmarshall(data);
         } else {
           // nothing in the DB
           result = new Array;
@@ -373,6 +385,7 @@ package org.restfulx.services.air {
     }
     
     /**
+     * @inheritDoc
      * @see org.restfulx.services.ISyncingServiceProvider#purge
      */
     public function purge(object:Object, responder:IResponder, metadata:Object = null, nestedBy:Array = null):void {
@@ -381,6 +394,7 @@ package org.restfulx.services.air {
       statement = statement.replace("{id}", object["id"]);
       statement = statement.replace("{rev}", object["rev"]);
       try {
+        Rx.log.debug("purge:executing SQL:" + statement);
         getSQLStatement(statement).execute();
         invokeResponderResult(responder, object);
       } catch (e:Error) {
@@ -389,6 +403,7 @@ package org.restfulx.services.air {
     }  
 	  
     /**
+     * @inheritDoc
      * @see org.restfulx.services.ISyncingServiceProvider#sync
      */
 	  public function sync(object:Object, responder:IResponder, metadata:Object = null, nestedBy:Array = null):void {
@@ -420,6 +435,7 @@ package org.restfulx.services.air {
       sqlStatement.parameters[":rev"] = object["rev"];
       
       try {
+        Rx.log.debug("updateSyncStatus:executing SQL:" + sqlStatement.text);
         sqlStatement.execute();
         object["sync"] = syncStatus;
         object["xrev"] = null;
@@ -540,7 +556,8 @@ package org.restfulx.services.air {
       var fqn:String = query['fqn'];
       var clazz:Class = getDefinitionByName(fqn) as Class;
               
-      try {   
+      try {
+        Rx.log.debug("index:executing SQL:" + statement.text);
         statement.execute();
         
         var result:Object;
